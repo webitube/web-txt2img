@@ -80,7 +80,23 @@
                 <input id="seed" type="number" placeholder="Random" />
               </div>
             </div>
-            <div class="btn-group">
+            <!-- Bonsai-specific controls (hidden by default) -->
+            <div data-bonsai-control style="display: none; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #334155;">
+              <div class="input-group">
+                <div class="input-wrapper" style="flex: 1;">
+                  <label for="bonsai-steps">Inference Steps</label>
+                  <input id="bonsai-steps" type="number" min="1" max="12" value="4" placeholder="4" />
+                </div>
+                <div class="input-wrapper" style="flex: 1;">
+                  <label for="bonsai-guidance">Guidance Scale</label>
+                  <input id="bonsai-guidance" type="number" min="0.5" max="3.0" step="0.1" value="1.0" placeholder="1.0" />
+                </div>
+              </div>
+              <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">
+                Bonsai uses Euler flow-matching. Recommended: 4 steps, guidance 1.0.
+              </p>
+            </div>
+            <div class="btn-group" style="margin-top: 0.75rem;">
               <button id="gen" class="btn btn-primary" style="flex: 2;">Generate Image</button>
               <button id="abort" class="btn btn-danger" disabled>Stop</button>
             </div>

@@ -1,7 +1,7 @@
 // Shared types for the public API
 
 export type BackendId = 'webgpu' | 'wasm';
-export type ModelId = 'sd-turbo' | 'janus-pro-1b';
+export type ModelId = 'sd-turbo' | 'janus-pro-1b' | 'bonsai-ternary' | 'bonsai-binary';
 
 export type ErrorCode =
   | 'webgpu_unsupported'
@@ -65,6 +65,10 @@ export interface GenerateParams {
   seed?: number; // supported for SD-Turbo only
   width?: number; // SD-Turbo: 512 only in v1
   height?: number; // SD-Turbo: 512 only in v1
+  // Bonsai-specific params
+  steps?: number; // Bonsai: default 4
+  guidanceScale?: number; // Bonsai: default 1.0
+  scheduler?: 'euler'; // Bonsai uses Euler flow-matching
   signal?: AbortSignal;
   onProgress?: (event: GenerationProgressEvent) => void;
 }

@@ -168,6 +168,37 @@ async function init() {
     log(lines.join('\n'));
   };
 
+  // Bonsai-specific controls
+  const isBonsai = (modelId) => modelId?.startsWith('bonsai-');
+  
+  // Update seed input label based on selected model
+  const updateSeedLabel = () => {
+    const seedLabel = $('seed')?.previousElementSibling;
+    if (seedLabel) {
+      seedLabel.textContent = isBonsai(sel.value) ? 'Seed' : 'Seed (SD-Turbo)';
+    }
+  };
+  
+  // Add Bonsai-specific params to generate call
+  const getBonsaiParams = () => {
+    if (!isBonsai(sel.value)) return {};
+    const stepsEl = $('bonsai-steps');
+    const guidanceEl = $('bonsai-guidance');
+    const params: any = {};
+    if (stepsEl) params.steps = Number(stepsEl.value) || 4;
+    if (guidanceEl) params.guidanceScale = Number(guidanceEl.value) || 1.0;
+    return params;
+  };
+  
+  // Update Bonsai controls visibility when model changes
+  sel.addEventListener('change', () => {
+    const bonsaiControls = document.querySelectorAll('[data-bonsai-control]');
+    bonsaiControls.forEach(el => {
+      el.style.display = isBonsai(sel.value) ? '' : 'none';
+    });
+    updateSeedLabel();
+  });
+  
   $('gen').onclick = async () => {
     if (generating) { log('Already generating…'); return; }
     const model = sel.value;
@@ -175,10 +206,14 @@ async function init() {
     const prompt = $('prompt').value || 'Hello from web-txt2img';
     const seedVal = $('seed').value;
     const seed = seedVal === '' ? undefined : Number(seedVal);
-    log(`Generating with prompt: ${prompt}`);
+    
+    // Get Bonsai-specific params
+    const bonsaiParams = getBonsaiParams();
+    
+    log(`Generating with prompt: ${prompt}${Object.keys(bonsaiParams).length ? ' (Bonsai params: ' + JSON.stringify(bonsaiParams) + ')' : ''}`);
     generating = true;
     $('abort').disabled = false;
-    const { promise, abort } = client.generate({ prompt, seed }, (e) => {
+    const { promise, abort } = client.generate({ prompt, seed, ...bonsaiParams }, (e) => {
       const name = typeof e.phase === 'string' ? e.phase : 'working';
       const pct = e.pct != null ? e.pct : (typeof e.progress === 'number' ? Math.round(e.progress * 100) : undefined);
       setProgress({ message: `generate: ${name}` + (e.count != null && e.total != null ? ` (${e.count}/${e.total})` : ''), pct });

@@ -1,6 +1,7 @@
 import type { BackendId, ModelId, ModelInfo, RegistryEntry } from './types.js';
 import { SDTurboAdapter } from './adapters/sd-turbo.js';
 import { JanusProAdapter } from './adapters/janus-pro.js';
+import { BonsaiAdapter } from './adapters/bonsai.js';
 
 const REGISTRY: RegistryEntry[] = [
   {
@@ -24,6 +25,28 @@ const REGISTRY: RegistryEntry[] = [
     sizeGBApprox: 2.25,
     sizeNotes: 'Mixed-precision ONNX; varies slightly by device/dtype',
     createAdapter: () => new JanusProAdapter(),
+  },
+  {
+    id: 'bonsai-ternary',
+    displayName: 'Bonsai-Image-4B Ternary (1.58-bit)',
+    task: 'text-to-image',
+    supportedBackends: ['webgpu'],
+    notes: 'Euler flow-matching, 4 steps, guidance 1.0. GGUF weights.',
+    sizeBytesApprox: 1570 * 1024 * 1024, // ~1.21 GB DiT + ~360 MB VAE
+    sizeGBApprox: 1.5,
+    sizeNotes: 'DiT ~1.21GB ternary, VAE ~360MB, text_encoder ~350MB (ONNX, evictable)',
+    createAdapter: () => new BonsaiAdapter('ternary'),
+  },
+  {
+    id: 'bonsai-binary',
+    displayName: 'Bonsai-Image-4B Binary (1-bit)',
+    task: 'text-to-image',
+    supportedBackends: ['webgpu'],
+    notes: 'Euler flow-matching, 4 steps, guidance 1.0. GGUF weights.',
+    sizeBytesApprox: 960 * 1024 * 1024, // ~0.6 GB DiT + ~360 MB VAE
+    sizeGBApprox: 0.92,
+    sizeNotes: 'DiT ~0.6GB binary, VAE ~360MB, text_encoder ~350MB (ONNX, evictable)',
+    createAdapter: () => new BonsaiAdapter('binary'),
   },
 ];
 
@@ -49,6 +72,9 @@ export function defaultBackendPreferenceFor(id: ModelId): BackendId[] {
     case 'sd-turbo':
       return ['webgpu', 'wasm'];
     case 'janus-pro-1b':
+      return ['webgpu'];
+    case 'bonsai-ternary':
+    case 'bonsai-binary':
       return ['webgpu'];
   }
 }
