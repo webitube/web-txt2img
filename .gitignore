@@ -1,1 +1,12 @@
 node_modules/
+
+# Build outputs
+packages/web-txt2img/dist/
+examples/vanilla-worker/dist/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
