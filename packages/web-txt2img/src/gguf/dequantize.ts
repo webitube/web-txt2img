@@ -2,7 +2,12 @@
 // Supports ternary {-1, 0, 1} and binary {-1, 1} unpacking
 // Reference: Bonsai-Image-Demo gemlite/HQQ packing format
 
-import { GgufTensorType, GgufTensorData } from './types.js';
+import type { GgufTensorData } from './types.js';
+import { GgufTensorType } from './types.js';
+
+// Re-export for consumers
+export { GgufTensorType } from './types.js';
+export type { GgufTensorData } from './types.js';
 
 // ─── Standard Type Dequantization ────────────────────────────────────────────
 

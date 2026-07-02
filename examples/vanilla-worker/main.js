@@ -184,7 +184,7 @@ async function init() {
     if (!isBonsai(sel.value)) return {};
     const stepsEl = $('bonsai-steps');
     const guidanceEl = $('bonsai-guidance');
-    const params: any = {};
+    const params = {};
     if (stepsEl) params.steps = Number(stepsEl.value) || 4;
     if (guidanceEl) params.guidanceScale = Number(guidanceEl.value) || 1.0;
     return params;

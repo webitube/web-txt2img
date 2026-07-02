@@ -1,14 +1,16 @@
 // GGUF binary parser for browser-side reading of .gguf files
 // Reference: https://github.com/ggml-org/ggml/blob/master/docs/gguf.md
 
-import {
+import type {
   GgufHeader,
   GgufTensorInfo,
-  GgufTensorType,
-  GgufMetadataType,
   GgufMetadataValue,
   GgufFile,
   GgufTensorData,
+} from './types.js';
+import {
+  GgufTensorType,
+  GgufMetadataType,
   GGUF_MAGIC,
   GGUF_MAGIC_BYTES,
   GGUF_VERSION,

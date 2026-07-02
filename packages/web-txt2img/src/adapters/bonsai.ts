@@ -14,14 +14,16 @@ import type {
 } from '../types.js';
 import { purgeModelCache } from '../cache.js';
 import { parseGguf, extractTensor, extractTensorsByName, getMetadataInt, getMetadataString } from '../gguf/parser.js';
-import { dequantize, GgufTensorType, GgufTensorData } from '../gguf/dequantize.js';
+import { dequantize, GgufTensorType } from '../gguf/dequantize.js';
 
 type HF = typeof import('@huggingface/transformers');
 
 // Bonsai-specific model URLs
 const BONSAI_MODELS = {
-  // GGUF files (hosted on HuggingFace or CDN)
-  ggufBase: 'https://huggingface.co/prism-ml/bonsai-image-4B-gguf/resolve/main',
+  // GGUF files (local dev server for testing, HuggingFace for production)
+  ggufBase: typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV
+    ? 'http://localhost:8765'
+    : 'https://huggingface.co/prism-ml/bonsai-image-4B-gguf/resolve/main',
   // Transformers.js ONNX text encoder
   textEncoderId: 'PrismML/Bonsai-Image-4B-TextEncoder-ONNX',
   // Tokenizer
@@ -184,7 +186,7 @@ export class BonsaiAdapter implements Adapter {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
       
-      this.webgpuDevice.queue.writeBuffer(buffer, 0, dequantized.buffer);
+      this.webgpuDevice.queue.writeBuffer(buffer, 0, dequantized.buffer as ArrayBuffer);
       this.tensorBuffers.set(tensorInfo.name, buffer);
     }
   }
@@ -355,7 +357,11 @@ export class BonsaiAdapter implements Adapter {
       throw new Error('Canvas 2D context unavailable');
     }
     
-    const bitmap = new ImageData(imageData, width, height);
+    const bitmap = new ImageData(
+      imageData as unknown as Uint8ClampedArray<ArrayBuffer>,
+      width,
+      height
+    );
     ctx.putImageData(bitmap, 0, 0);
     
     if (hasOffscreen) {
