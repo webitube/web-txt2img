@@ -1,1 +1,3 @@
 node_modules/
+packages/web-txt2img/dist/
+*.safetensors
