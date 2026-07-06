@@ -2,6 +2,7 @@
  * Unit tests for sigma schedule computations.
  */
 import { computeLinearSigmas, computeKarrasSigmas, computeExponentialSigmas } from '../sigmas';
+import { SigmaSchedule } from '../schedule';
 
 describe('Sigma Schedule Computations', () => {
   describe('computeLinearSigmas', () => {
@@ -70,6 +71,27 @@ describe('Sigma Schedule Computations', () => {
 
     it('throws when sigmaMin >= sigmaMax', () => {
       expect(() => computeExponentialSigmas(10, 5, 50)).toThrow();
+    });
+  });
+
+  describe('SigmaSchedule edge cases', () => {
+    it('handles Karras schedule with 1 step without throwing', () => {
+      // Regression test: with 1 step, sigmaMin === sigmaMax which would fail Karras validation
+      const schedule = new SigmaSchedule({ sigmaSchedule: 'karras' });
+      expect(() => schedule.setTimesteps(1)).not.toThrow();
+    });
+
+    it('handles exponential schedule with 1 step without throwing', () => {
+      const schedule = new SigmaSchedule({ sigmaSchedule: 'exponential' });
+      expect(() => schedule.setTimesteps(1)).not.toThrow();
+    });
+
+    it('produces correct sigmas with 1 step', () => {
+      const schedule = new SigmaSchedule({ sigmaSchedule: 'karras' });
+      schedule.setTimesteps(1);
+      const sigmas = schedule.getSigmas();
+      expect(sigmas.length).toBe(1);
+      expect(sigmas[0]).toBeGreaterThan(0);
     });
   });
 });

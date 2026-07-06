@@ -149,12 +149,15 @@ export class SigmaSchedule {
     });
 
     // Apply sigma schedule transformation if specified
-    if (sigmaSchedule === 'karras' || this.config.useKarrasSigmas) {
-      return this.convertToKarras(sampledSigmas);
-    }
+    // Only transform when there are >= 2 sigmas (need at least 2 points for interpolation)
+    if (sampledSigmas.length >= 2) {
+      if (sigmaSchedule === 'karras' || this.config.useKarrasSigmas) {
+        return this.convertToKarras(sampledSigmas);
+      }
 
-    if (sigmaSchedule === 'exponential' || this.config.useExponentialSigmas) {
-      return this.convertToExponential(sampledSigmas);
+      if (sigmaSchedule === 'exponential' || this.config.useExponentialSigmas) {
+        return this.convertToExponential(sampledSigmas);
+      }
     }
 
     return sampledSigmas;
