@@ -23,7 +23,15 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     exclude: ['web-txt2img'],
   },
+  build: {
+    // production: minify=true, sourcemap=false
+    // development: minify=false, sourcemap=false
+    // debug: minify=false, sourcemap='inline'
+    minify: mode === 'production',
+    sourcemap: mode === 'debug',
+  },
   define: {
     __ORT_WASM_BASE_DEV__: JSON.stringify(ORT_WASM_BASE_DEV),
+    __MODE__: JSON.stringify(mode),
   },
 }));

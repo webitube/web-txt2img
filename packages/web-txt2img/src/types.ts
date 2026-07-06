@@ -2,6 +2,7 @@
 
 export type BackendId = 'webgpu' | 'wasm';
 export type ModelId = 'sd-turbo' | 'janus-pro-1b';
+export type SchedulerId = 'euler' | 'ddim' | 'dpmpp_2m_karras' | 'euler_ancestral';
 
 export type ErrorCode =
   | 'webgpu_unsupported'
@@ -63,8 +64,10 @@ export interface GenerateParams {
   model: ModelId;
   prompt: string;
   seed?: number; // supported for SD-Turbo only
-  width?: number; // SD-Turbo: 512 only in v1
-  height?: number; // SD-Turbo: 512 only in v1
+  width?: number; // SD-Turbo: 64-2048, must be multiple of 64
+  height?: number; // SD-Turbo: 64-2048, must be multiple of 64
+  numInferenceSteps?: number; // SD-Turbo: 1 (default, fastest) to ~10 (higher quality)
+  scheduler?: SchedulerId; // 'euler' (default), 'ddim', 'dpmpp_2m_karras', 'euler_ancestral'
   signal?: AbortSignal;
   onProgress?: (event: GenerationProgressEvent) => void;
 }

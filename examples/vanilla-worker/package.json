@@ -6,8 +6,10 @@
   "scripts": {
     "predev": "node scripts/copy-ort-assets.cjs",
     "prebuild": "node scripts/copy-ort-assets.cjs",
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --mode development",
+    "dev:debug": "vite --mode debug",
+    "build:dev": "vite build --mode development",
+    "build:prod": "vite build --mode production",
     "preview": "vite preview --open"
   },
   "dependencies": {

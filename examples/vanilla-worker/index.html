@@ -80,6 +80,32 @@
                 <input id="seed" type="number" placeholder="Random" />
               </div>
             </div>
+            <div class="resolution-group">
+              <div class="resolution-control">
+                <label for="width">Width</label>
+                <input id="width" type="range" min="256" max="1024" step="64" value="512" />
+                <span id="width-value" class="resolution-value">512</span>
+              </div>
+              <div class="resolution-control">
+                <label for="height">Height</label>
+                <input id="height" type="range" min="256" max="1024" step="64" value="512" />
+                <span id="height-value" class="resolution-value">512</span>
+              </div>
+              <div class="resolution-control">
+                <label for="steps">Inference Steps</label>
+                <input id="steps" type="range" min="1" max="50" step="1" value="1" />
+                <span id="steps-value" class="resolution-value">1</span>
+              </div>
+              <div class="resolution-control">
+                <label for="scheduler">Scheduler</label>
+                <select id="scheduler" class="scheduler-select">
+                  <option value="euler" selected>Euler</option>
+                  <option value="ddim">DDIM</option>
+                  <option value="dpmpp_2m_karras">DPM++ 2M Karras</option>
+                  <option value="euler_ancestral">Euler Ancestral</option>
+                </select>
+              </div>
+            </div>
             <div class="btn-group">
               <button id="gen" class="btn btn-primary" style="flex: 2;">Generate Image</button>
               <button id="abort" class="btn btn-danger" disabled>Stop</button>

@@ -51,6 +51,32 @@ let loadedModels = new Set();
 let loadedDetails = new Map(); // modelId -> { backendUsed, bytesDownloaded? }
 let currentAbort = null;
 
+// Resolution slider value displays
+const widthSlider = $('width');
+const heightSlider = $('height');
+const widthValue = $('width-value');
+const heightValue = $('height-value');
+const stepsSlider = $('steps');
+const stepsValue = $('steps-value');
+
+if (widthSlider && widthValue) {
+  widthSlider.addEventListener('input', () => {
+    widthValue.textContent = widthSlider.value;
+  });
+}
+
+if (heightSlider && heightValue) {
+  heightSlider.addEventListener('input', () => {
+    heightValue.textContent = heightSlider.value;
+  });
+}
+
+if (stepsSlider && stepsValue) {
+  stepsSlider.addEventListener('input', () => {
+    stepsValue.textContent = stepsSlider.value;
+  });
+}
+
 async function init() {
   // Check for WebGPU support first
   if (!navigator.gpu) {
@@ -175,10 +201,14 @@ async function init() {
     const prompt = $('prompt').value || 'Hello from web-txt2img';
     const seedVal = $('seed').value;
     const seed = seedVal === '' ? undefined : Number(seedVal);
-    log(`Generating with prompt: ${prompt}`);
+    const width = Number($('width').value);
+    const height = Number($('height').value);
+    const numInferenceSteps = Number($('steps').value);
+    const scheduler = $('scheduler').value;
+    log(`Generating with prompt: ${prompt} at ${width}x${height} (${numInferenceSteps} step${numInferenceSteps > 1 ? 's' : ''}, scheduler: ${scheduler})`);
     generating = true;
     $('abort').disabled = false;
-    const { promise, abort } = client.generate({ prompt, seed }, (e) => {
+    const { promise, abort } = client.generate({ prompt, seed, width, height, numInferenceSteps, scheduler }, (e) => {
       const name = typeof e.phase === 'string' ? e.phase : 'working';
       const pct = e.pct != null ? e.pct : (typeof e.progress === 'number' ? Math.round(e.progress * 100) : undefined);
       setProgress({ message: `generate: ${name}` + (e.count != null && e.total != null ? ` (${e.count}/${e.total})` : ''), pct });
