@@ -17,7 +17,9 @@ function mulberry32(seed: number) {
   };
 }
 
-export function createEulerAncestralStepFn(_config: SchedulerConfig): SchedulerStepFunction {
+export function createEulerAncestralStepFn(config: SchedulerConfig): SchedulerStepFunction {
+  const sNoise = config.sNoise ?? 1.0;
+
   return function eulerAncestralStep(
     modelOutput: Float32Array,
     sample: Float32Array,
@@ -31,10 +33,12 @@ export function createEulerAncestralStepFn(_config: SchedulerConfig): SchedulerS
     const seed = (state.stepIndex >>> 0) || 0;
     const rand = mulberry32(seed);
 
-    // Ancestral noise scale: sqrt(sigma_{t-1}^2 - sigma_t^2)
-    // Note: sigma decreases during denoising, so nextSigma < sigma
-    // We need sqrt(sigma^2 - nextSigma^2) for the noise scale
-    const noiseScale = Math.sqrt(Math.max(sigma * sigma - nextSigma * nextSigma, 0));
+    // Ancestral noise scale: sqrt(sigma^2 - nextSigma^2) * sNoise
+    // Skip noise on the final step (nextSigma = 0) to avoid re-noising the clean image
+    const isFinalStep = nextSigma === 0;
+    const noiseScale = isFinalStep
+      ? 0
+      : Math.sqrt(Math.max(sigma * sigma - nextSigma * nextSigma, 0)) * sNoise;
 
     for (let i = 0; i < sample.length; i++) {
       const epsilon = modelOutput[i];
@@ -42,7 +46,7 @@ export function createEulerAncestralStepFn(_config: SchedulerConfig): SchedulerS
       const dt = nextSigma - sigma;
       let val = sample[i] + epsilon * dt;
 
-      // Add ancestral noise
+      // Add ancestral noise (skip on final step)
       if (noiseScale > 0) {
         const u = Math.max(rand(), 1e-10);
         const v = rand();
