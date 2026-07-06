@@ -8,6 +8,7 @@ import type {
   LoadResult,
 } from '../types.js';
 import { fetchArrayBufferWithCacheProgress, purgeModelCache } from '../cache.js';
+import { findScheduler, listSchedulers, SigmaSchedule, createSchedulerState } from '../scheduler/index.js';
 
 type ORT = typeof import('onnxruntime-web');
 
@@ -234,28 +235,41 @@ export class SDTurboAdapter implements Adapter {
       const sigma = 14.6146;
       const vae_scaling_factor = 0.18215;
       const numSteps = Math.max(1, Math.min(numInferenceSteps ?? 1, 50));
-      const scheduler = params.scheduler ?? 'euler';
+      const schedulerName = params.scheduler ?? 'euler';
 
-      // Build timestep schedule: evenly spaced from 999 down to 0
-      const timesteps = Array.from({ length: numSteps }, (_, i) => Math.round(999 * (1 - i / numSteps)));
+      // Look up scheduler from registry
+      const schedulerInfo = findScheduler(schedulerName);
+      if (!schedulerInfo) {
+        const available = listSchedulers().join(', ');
+        return { ok: false, reason: 'unsupported_option', message: `Unknown scheduler '${schedulerName}'. Available: ${available}` };
+      }
+
+      // Merge user-provided config with scheduler defaults
+      const mergedConfig = { ...schedulerInfo.config, ...(params.schedulerConfig ?? {}) };
+
+      // Create sigma schedule
+      const sigmaSchedule = new SigmaSchedule(mergedConfig);
+      sigmaSchedule.setTimesteps(numSteps);
 
       let currentLatent = new (ort as any).Tensor(randn_latents(latent_shape, sigma, seed), latent_shape);
 
-      // DPM++ 2M needs the previous model output for 2nd-order integration
-      let prevModelOutput: Float32Array | null = null;
-      let prevTimestep = 999;
+      // Create scheduler state for multistep solvers
+      const solverOrder = mergedConfig.solverOrder ?? 1;
+      const schedulerState = createSchedulerState(solverOrder);
+
+      // Create step function
+      const stepFn = schedulerInfo.createStepFn(mergedConfig);
 
       // Denoising loop
       onProgress?.({ phase: 'denoising', pct: 40 });
       for (let i = 0; i < numSteps; i++) {
         if (signal?.aborted) { onProgress?.({ phase: 'complete', aborted: true as any, pct: 0 }); return { ok: false, reason: 'cancelled' }; }
 
-        const currentTimestep = timesteps[i];
-        const nextTimestep = i < numSteps - 1 ? timesteps[i + 1] : 0;
+        const currentSigma = sigmaSchedule.getSigma(i);
+        const nextSigma = sigmaSchedule.getNextSigma(i);
 
-        // Map timestep to sigma: sigma_t = sigma * (t / 999)
-        const currentSigma = sigma * (currentTimestep / 999);
-        const nextSigma = sigma * (nextTimestep / 999);
+        // Map sigma back to timestep for UNet
+        const currentTimestep = Math.round((currentSigma / sigma) * 999);
 
         const latent_model_input = scale_model_inputs(ort as any, currentLatent, currentSigma);
 
@@ -273,16 +287,17 @@ export class SDTurboAdapter implements Adapter {
           throw new Error(`unet.run failed at step ${i + 1}/${numSteps}: ${e instanceof Error ? e.message : String(e)}`);
         }
 
-        // Dispatch to scheduler step function
-        currentLatent = schedulerStep(
-          scheduler, ort as any, out_sample, currentLatent,
-          currentSigma, nextSigma, prevModelOutput, prevTimestep, currentTimestep,
-          seed, i
-        );
+        // Update scheduler state
+        schedulerState.stepIndex = i;
+        schedulerState.prevSigma = currentSigma;
 
-        // Cache model output for DPM++ 2M (needs previous step)
-        prevModelOutput = out_sample.data;
-        prevTimestep = currentTimestep;
+        // Dispatch to scheduler step function
+        const resultData = stepFn(out_sample.data, currentLatent.data, currentSigma, nextSigma, schedulerState);
+
+        // Cache model output for multistep solvers
+        schedulerState.prevModelOutput = new Float32Array(out_sample.data);
+
+        currentLatent = new (ort as any).Tensor(resultData, currentLatent.dims);
 
         const pct = 40 + Math.round((i + 1) / numSteps * 55);
         onProgress?.({ phase: 'denoising', pct, step: i + 1, totalSteps: numSteps });

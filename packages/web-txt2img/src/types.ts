@@ -2,7 +2,44 @@
 
 export type BackendId = 'webgpu' | 'wasm';
 export type ModelId = 'sd-turbo' | 'janus-pro-1b';
-export type SchedulerId = 'euler' | 'ddim' | 'dpmpp_2m_karras' | 'euler_ancestral';
+export type SchedulerId =
+  | 'euler'
+  | 'ddim'
+  | 'dpmpp_2m_karras'
+  | 'euler_ancestral'
+  | 'dpmpp_2m'
+  | 'dpmpp_sde'
+  | 'heun'
+  | 'flow_euler'
+  | 'flow_dpmpp_2m';
+
+/**
+ * Scheduler configuration - re-exported from scheduler/types.ts for convenience.
+ * This is a forward declaration to avoid circular imports.
+ */
+export interface SchedulerConfig {
+  betaStart?: number;
+  betaEnd?: number;
+  betaSchedule?: 'linear' | 'scaled_linear';
+  numTrainTimesteps?: number;
+  useKarrasSigmas?: boolean;
+  useExponentialSigmas?: boolean;
+  sigmaSchedule?: 'karras' | 'exponential' | 'beta' | 'lambdas' | null;
+  solverOrder?: number;
+  solverType?: 'midpoint' | 'heun';
+  algorithmType?: string;
+  lowerOrderFinal?: boolean;
+  useFlowSigmas?: boolean;
+  shift?: number;
+  useDynamicShifting?: boolean;
+  baseShift?: number;
+  maxShift?: number;
+  sNoise?: number;
+  useNoiseSampler?: boolean;
+  predictionType?: 'epsilon' | 'v_prediction' | 'flow_prediction';
+  timestepSpacing?: 'linspace' | 'leading' | 'trailing';
+  finalSigmasType?: 'zero' | 'sigma_min';
+}
 
 export type ErrorCode =
   | 'webgpu_unsupported'
@@ -67,7 +104,8 @@ export interface GenerateParams {
   width?: number; // SD-Turbo: 64-2048, must be multiple of 64
   height?: number; // SD-Turbo: 64-2048, must be multiple of 64
   numInferenceSteps?: number; // SD-Turbo: 1 (default, fastest) to ~10 (higher quality)
-  scheduler?: SchedulerId; // 'euler' (default), 'ddim', 'dpmpp_2m_karras', 'euler_ancestral'
+  scheduler?: SchedulerId; // 'euler' (default), 'ddim', 'dpmpp_2m_karras', 'euler_ancestral', etc.
+  schedulerConfig?: SchedulerConfig; // optional scheduler configuration override
   signal?: AbortSignal;
   onProgress?: (event: GenerationProgressEvent) => void;
 }

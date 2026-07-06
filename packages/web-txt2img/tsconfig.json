@@ -10,8 +10,9 @@
     "rootDir": "src",
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "types": ["jest", "node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/worker/host.js"]
+  "exclude": ["node_modules", "dist", "src/worker/host.js", "src/**/__tests__/**/*"]
 }

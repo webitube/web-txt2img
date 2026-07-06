@@ -57,9 +57,9 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "onnxruntime-web": "^1.18.0",
+    "@huggingface/transformers": "^3",
     "@xenova/transformers": "*",
-    "@huggingface/transformers": "^3"
+    "onnxruntime-web": "^1.18.0"
   },
   "peerDependenciesMeta": {
     "onnxruntime-web": {
@@ -73,6 +73,9 @@
     }
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "typescript": "^5.9.2"
   }
 }

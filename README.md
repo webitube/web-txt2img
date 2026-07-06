@@ -8,6 +8,9 @@ A lightweight, browser‑only JavaScript/TypeScript library that provides a unif
 - WebGPU-accelerated: Leverages modern GPU capabilities for fast inference.
 - Progress + abort: phase updates and `AbortController` support.
 - SD‑Turbo: seeded generation (deterministic latents), 512×512 image size.
+- Advanced scheduler system: 9 schedulers including Euler, DDIM, DPM++ 2M, Heun, DPM-Solver-2, DPM++ SDE, and flow matching schedulers for SD3/FLUX models.
+- Sigma schedule control: linear, Karras, exponential, and flow sigma schedules.
+- Scheduler presets: fast, balanced, quality, flow_fast, flow_quality presets for quick configuration.
 - Cache aware: uses Cache Storage for model artifacts where possible.
 
 ## Supported Models
@@ -160,10 +163,37 @@ Progress events on `load` include standardized fields: `bytesDownloaded` and `to
 
 - `prompt`: required
 - `seed`: supported for `sd-turbo`; deterministic where backend/drivers allow
-- `width/height`: 512×512
+- `width/height`: 512×512 (SD-Turbo), variable for other models
+- `scheduler`: optional, defaults to `'euler'`. See [Scheduler Reference](#scheduler-reference) below.
+- `schedulerConfig`: optional, override scheduler settings (beta schedule, sigma schedule, solver order, etc.)
+- `numInferenceSteps`: optional, defaults to 1 for SD-Turbo (1-50 range)
 
 Model registry entries now include approximate size fields for UX:
 - `sizeBytesApprox?`, `sizeGBApprox?`, `sizeNotes?`
+
+### Scheduler Reference
+
+| Scheduler | ID | Description | Recommended Steps | Quality | Speed |
+|-----------|-----|-------------|-------------------|---------|-------|
+| Euler | `euler` | First-order Euler method - fast and simple | 1-50 | ★★★ | ★★★★★ |
+| DDIM | `ddim` | Denoising Diffusion Implicit Models - deterministic | 10-100 | ★★★ | ★★★★ |
+| DPM++ 2M Karras | `dpmpp_2m_karras` | 2nd-order multistep with Karras sigmas | 15-50 | ★★★★ | ★★★★ |
+| DPM++ 2M | `dpmpp_2m` | 2nd-order multistep solver | 15-50 | ★★★★ | ★★★★ |
+| Euler Ancestral | `euler_ancestral` | Euler with ancestral noise - more diverse outputs | 10-100 | ★★★ | ★★★★ |
+| Heun | `heun` | 2nd-order Runge-Kutta method | 10-50 | ★★★★ | ★★★ |
+| DPM-Solver-2 | `dpm_solver_2` | Two-stage midpoint method | 10-50 | ★★★★ | ★★★ |
+| DPM++ SDE | `dpmpp_sde` | Stochastic solver with noise injection | 20-50 | ★★★★ | ★★★ |
+| Flow Euler | `flow_euler` | Euler with flow matching sigmas (SD3/FLUX) | 1-20 | ★★★ | ★★★★★ |
+| Flow DPM++ 2M | `flow_dpmpp_2m` | DPM++ 2M with flow matching sigmas (SD3/FLUX) | 10-50 | ★★★★★ | ★★★★ |
+
+### Scheduler Presets
+
+Use presets for quick configuration:
+- `fast`: Euler, 1-4 steps, linear sigmas
+- `balanced`: DPM++ 2M, 10-20 steps, Karras sigmas
+- `quality`: DPM++ 2M SDE, 20-50 steps, exponential sigmas
+- `flow_fast`: Flow Euler, 1-4 steps, flow sigmas
+- `flow_quality`: Flow DPM++ 2M, 10-20 steps, flow sigmas with shift
 
 ## Advanced Usage
 

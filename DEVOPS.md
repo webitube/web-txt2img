@@ -28,6 +28,12 @@ npm run build:lib
 
 # Type-check without emitting
 npm run typecheck
+
+# Run unit tests (Jest + ts-jest)
+npm test
+
+# Run tests with watch mode
+npm run test:watch
 ```
 
 ### Example App (`examples/vanilla-worker`)
@@ -118,3 +124,4 @@ npm run clean && npm run build:vanilla:prod
 - The library (`packages/web-txt2img`) is always compiled via TypeScript (`tsc`) — it does not use Vite bundling.
 - The example app (`examples/vanilla-worker`) uses Vite for bundling and serves as the reference implementation.
 - ONNX Runtime Web assets (`.wasm`, `.data` files) are copied automatically by the `predev`/`prebuild` hooks.
+- The scheduler module (`src/scheduler/`) contains 9 schedulers, 5 sigma schedule types, noise utilities, and preset configurations. Tests are in `src/scheduler/__tests__/`.

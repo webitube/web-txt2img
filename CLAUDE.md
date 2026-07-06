@@ -76,6 +76,16 @@ Each AI model is implemented as an adapter (`src/adapters/`):
 
 ### Critical Implementation Details
 
+#### Scheduler System
+The library includes a comprehensive scheduler system (`src/scheduler/`) for diffusion model inference:
+- **9 schedulers**: Euler, DDIM, DPM++ 2M, DPM++ 2M Karras, Euler Ancestral, Heun, DPM-Solver-2, DPM++ SDE, Flow Euler, Flow DPM++ 2M
+- **5 sigma schedules**: linear, Karras, exponential, Beta, flow matching
+- **5 presets**: fast, balanced, quality, flow_fast, flow_quality
+- **Brownian Bridge noise** for SDE schedulers
+- **Flow matching support** for SD3/FLUX-style models (dynamic shift, time shift)
+- Key types: `SchedulerConfig`, `SchedulerState`, `SchedulerStepFunction`, `SchedulerInfo`
+- The SD-Turbo adapter uses the scheduler system for denoising loops
+
 #### WebGPU Requirements
 All models require WebGPU support. Ensure browser compatibility:
 - Chrome/Edge 113+ with WebGPU enabled
@@ -114,10 +124,18 @@ Standardized progress events with:
 ## Key Files to Understand
 
 When modifying core functionality:
-1. `packages/web-txt2img/src/types.ts` - All core type definitions
+1. `packages/web-txt2img/src/types.ts` - All core type definitions including `SchedulerConfig` and `SchedulerId`
 2. `packages/web-txt2img/src/registry.ts` - Model registration and metadata
 3. `packages/web-txt2img/src/worker/protocol.ts` - Worker communication protocol
 4. `packages/web-txt2img/src/adapters/*.ts` - Model-specific implementations
+5. `packages/web-txt2img/src/scheduler/` - Scheduler system (9 schedulers, sigma schedules, presets)
+   - `scheduler/registry.ts` - Scheduler registry with 9 schedulers
+   - `scheduler/sigmas.ts` - Sigma computation functions (linear, Karras, exponential, Beta)
+   - `scheduler/schedule.ts` - `SigmaSchedule` class for sigma management
+   - `scheduler/flow.ts` - Flow matching support (SD3/FLUX)
+   - `scheduler/noise.ts` - Brownian Bridge noise for SDE schedulers
+   - `scheduler/presets.ts` - 5 scheduler presets
+   - `scheduler/steps/*.ts` - Individual scheduler step functions
 
 ## TypeScript Configuration
 
@@ -132,3 +150,5 @@ When modifying core functionality:
 2. **Capability Detection**: Check browser features before attempting operations
 3. **Cache Management**: Models cached in browser Cache Storage, use `purge()` to clear
 4. **Backend Selection**: Use WebGPU for all models - WASM fallback is experimental
+5. **Scheduler Integration**: Denoising loops use `SigmaSchedule` + `findScheduler()` + step functions - see `src/adapters/sd-turbo.ts` for reference pattern
+6. **Test Configuration**: Jest uses `tsconfig.test.json` (disables verbatimModuleSyntax for compatibility)
