@@ -20,28 +20,23 @@ export function computeLinearSigmas(
   numSteps: number = 1000,
   betaSchedule: 'linear' | 'scaled_linear' = 'linear',
 ): number[] {
-  const betas = linspace(betaStart, betaEnd, numSteps);
-
-  let alphasCumprod: number[];
+  let betas: number[];
 
   if (betaSchedule === 'scaled_linear') {
-    // Scaled linear: sqrt(betas) then square
-    const sqrtBetas = betas.map((b) => Math.sqrt(b));
-    const sqrtAlphas = sqrtBetas.map((b) => Math.sqrt(1 - b));
-    alphasCumprod = [];
-    let acc = 1;
-    for (const a of sqrtAlphas) {
-      acc *= a;
-      alphasCumprod.push(acc);
-    }
+    // Scaled linear: betas = linspace(sqrt(beta_start), sqrt(beta_end), T) ** 2
+    // This is the formula used by SD 2.x / SD-Turbo
+    const sqrtBetas = linspace(Math.sqrt(betaStart), Math.sqrt(betaEnd), numSteps);
+    betas = sqrtBetas.map((b) => b * b);
   } else {
-    // Linear: direct computation
-    alphasCumprod = [];
-    let acc = 1;
-    for (const b of betas) {
-      acc *= 1 - b;
-      alphasCumprod.push(acc);
-    }
+    betas = linspace(betaStart, betaEnd, numSteps);
+  }
+
+  // Compute alphas_cumprod = cumprod(1 - betas)
+  const alphasCumprod: number[] = [];
+  let acc = 1;
+  for (const b of betas) {
+    acc *= 1 - b;
+    alphasCumprod.push(acc);
   }
 
   // sigma_t = sqrt((1 - alpha_cumprod) / alpha_cumprod)

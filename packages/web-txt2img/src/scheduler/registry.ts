@@ -17,7 +17,7 @@ import { createFlowDpmpp2mStepFn } from './steps/flowDpmpp2m';
 const DEFAULT_CONFIG: SchedulerConfig = {
   betaStart: 0.00085,
   betaEnd: 0.012,
-  betaSchedule: 'linear',
+  betaSchedule: 'scaled_linear',
   numTrainTimesteps: 1000,
   sigmaSchedule: null,
   solverOrder: 1,

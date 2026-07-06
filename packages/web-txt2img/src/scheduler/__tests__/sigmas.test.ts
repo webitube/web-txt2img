@@ -3,6 +3,7 @@
  */
 import { computeLinearSigmas, computeKarrasSigmas, computeExponentialSigmas } from '../sigmas';
 import { SigmaSchedule } from '../schedule';
+import { findScheduler, listSchedulers } from '../registry';
 
 describe('Sigma Schedule Computations', () => {
   describe('computeLinearSigmas', () => {
@@ -26,6 +27,14 @@ describe('Sigma Schedule Computations', () => {
       expect(sigmas.length).toBe(100);
       // Last sigma should be larger than first (ascending)
       expect(sigmas[sigmas.length - 1]).toBeGreaterThan(sigmas[0]);
+    });
+
+    it('scaled_linear max sigma matches SD-Turbo initial noise (~14.6146)', () => {
+      const sigmas = computeLinearSigmas(0.00085, 0.012, 1000, 'scaled_linear');
+      // The max sigma (at t=999) should be close to 14.6146 (SD-Turbo's initial noise sigma)
+      const maxSigma = sigmas[sigmas.length - 1];
+      expect(maxSigma).toBeGreaterThan(10);
+      expect(maxSigma).toBeLessThan(20);
     });
   });
 
@@ -92,6 +101,131 @@ describe('Sigma Schedule Computations', () => {
       const sigmas = schedule.getSigmas();
       expect(sigmas.length).toBe(1);
       expect(sigmas[0]).toBeGreaterThan(0);
+    });
+  });
+
+  describe('SD-Turbo inference params validation', () => {
+    const SD_TURBO_INITIAL_NOISE_SIGMA = 14.6146;
+    const SD_TURBO_NUM_TRAIN_TIMESTEPS = 1000;
+
+    it('euler scheduler 1-step: sigma matches initial noise, timestep in range', () => {
+      const info = findScheduler('euler');
+      expect(info).not.toBeNull();
+
+      const schedule = new SigmaSchedule(info!.config);
+      schedule.setTimesteps(1);
+
+      const sigmas = schedule.getSigmas();
+      const timesteps = schedule.getTimesteps();
+
+      // Sigma should be close to SD-Turbo's initial noise sigma
+      expect(sigmas[0]).toBeGreaterThan(10);
+      expect(sigmas[0]).toBeLessThan(20);
+      expect(Math.abs(sigmas[0] - SD_TURBO_INITIAL_NOISE_SIGMA)).toBeLessThan(2);
+
+      // Timestep should be 999 (max noise)
+      expect(timesteps[0]).toBe(999);
+    });
+
+    it('euler scheduler 10-steps: sigmas descending, all finite, timesteps in [0, 999]', () => {
+      const info = findScheduler('euler');
+      expect(info).not.toBeNull();
+
+      const schedule = new SigmaSchedule(info!.config);
+      schedule.setTimesteps(10);
+
+      const sigmas = schedule.getSigmas();
+      const timesteps = schedule.getTimesteps();
+
+      // All sigmas must be finite and positive
+      for (const s of sigmas) {
+        expect(Number.isFinite(s)).toBe(true);
+        expect(s).toBeGreaterThan(0);
+      }
+
+      // First sigma should match initial noise
+      expect(Math.abs(sigmas[0] - SD_TURBO_INITIAL_NOISE_SIGMA)).toBeLessThan(2);
+
+      // Sigmas should be descending (high noise → low noise)
+      for (let i = 1; i < sigmas.length; i++) {
+        expect(sigmas[i]).toBeLessThan(sigmas[i - 1]);
+      }
+
+      // All timesteps in valid range
+      for (const t of timesteps) {
+        expect(t).toBeGreaterThanOrEqual(0);
+        expect(t).toBeLessThanOrEqual(SD_TURBO_NUM_TRAIN_TIMESTEPS - 1);
+      }
+
+      // Timesteps should be descending
+      for (let i = 1; i < timesteps.length; i++) {
+        expect(timesteps[i]).toBeLessThan(timesteps[i - 1]);
+      }
+    });
+
+    it('dpmpp_2m_karras 10-steps: sigmas descending, all finite, timesteps valid', () => {
+      const info = findScheduler('dpmpp_2m_karras');
+      expect(info).not.toBeNull();
+
+      const schedule = new SigmaSchedule(info!.config);
+      schedule.setTimesteps(10);
+
+      const sigmas = schedule.getSigmas();
+      const timesteps = schedule.getTimesteps();
+
+      // All sigmas must be finite and positive
+      for (const s of sigmas) {
+        expect(Number.isFinite(s)).toBe(true);
+        expect(s).toBeGreaterThan(0);
+      }
+
+      // First sigma should be reasonable (not astronomical)
+      expect(sigmas[0]).toBeLessThan(100);
+      expect(sigmas[0]).toBeGreaterThan(5);
+
+      // Sigmas should be descending
+      for (let i = 1; i < sigmas.length; i++) {
+        expect(sigmas[i]).toBeLessThan(sigmas[i - 1]);
+      }
+
+      // All timesteps in valid range
+      for (const t of timesteps) {
+        expect(t).toBeGreaterThanOrEqual(0);
+        expect(t).toBeLessThanOrEqual(SD_TURBO_NUM_TRAIN_TIMESTEPS - 1);
+      }
+    });
+
+    it('all non-flow schedulers produce reasonable sigmas for 10 steps', () => {
+      const schedulers = listSchedulers().filter(
+        (name) => !name.startsWith('flow_')
+      );
+
+      for (const name of schedulers) {
+        const info = findScheduler(name);
+        expect(info).not.toBeNull();
+
+        const schedule = new SigmaSchedule(info!.config);
+        schedule.setTimesteps(10);
+
+        const sigmas = schedule.getSigmas();
+        const timesteps = schedule.getTimesteps();
+
+        // All sigmas finite and positive
+        for (const s of sigmas) {
+          expect(Number.isFinite(s)).toBe(true);
+          expect(s).toBeGreaterThan(0);
+        }
+
+        // First sigma in reasonable range (5-50 covers all standard SD schedulers)
+        expect(sigmas[0]).toBeGreaterThan(5);
+        expect(sigmas[0]).toBeLessThan(50);
+
+        // Timesteps in valid range
+        for (const t of timesteps) {
+          expect(t).toBeGreaterThanOrEqual(0);
+          expect(t).toBeLessThanOrEqual(999);
+        }
+      }
     });
   });
 });

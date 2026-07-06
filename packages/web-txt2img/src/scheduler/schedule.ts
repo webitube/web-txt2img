@@ -101,23 +101,25 @@ export class SigmaSchedule {
   private buildTimesteps(): number[] {
     const numTrainTimesteps = this.config.numTrainTimesteps ?? 1000;
     const spacing = this.config.timestepSpacing ?? 'linspace';
+    // Clamp timesteps to valid range [0, numTrainTimesteps - 1]
+    const clamp = (t: number) => Math.max(0, Math.min(t, numTrainTimesteps - 1));
 
     switch (spacing) {
       case 'leading':
         // Include t=0
         return Array.from({ length: this.numSteps }, (_, i) =>
-          Math.round((i * numTrainTimesteps) / (this.numSteps - 1)),
+          clamp(Math.round((i * numTrainTimesteps) / (this.numSteps - 1))),
         );
       case 'trailing':
         // Include t=T
         return Array.from({ length: this.numSteps }, (_, i) =>
-          Math.round(((this.numSteps - 1 - i) * numTrainTimesteps) / (this.numSteps - 1)),
+          clamp(Math.round(((this.numSteps - 1 - i) * numTrainTimesteps) / (this.numSteps - 1))),
         );
       case 'linspace':
       default:
         // Uniform spacing from numTrainTimesteps-1 down to 0
         return Array.from({ length: this.numSteps }, (_, i) =>
-          Math.round(numTrainTimesteps * (1 - i / this.numSteps)),
+          clamp(Math.round(numTrainTimesteps * (1 - i / this.numSteps))),
         );
     }
   }

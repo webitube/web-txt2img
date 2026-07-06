@@ -260,6 +260,23 @@ export class SDTurboAdapter implements Adapter {
       // Create step function
       const stepFn = schedulerInfo.createStepFn(mergedConfig);
 
+      // Debug: log scheduler config summary
+      console.debug('[sd-turbo] scheduler', {
+        scheduler: schedulerName,
+        numSteps,
+        sigmaSchedule: mergedConfig.sigmaSchedule ?? 'linear',
+        betaSchedule: mergedConfig.betaSchedule ?? 'linear',
+        predictionType: mergedConfig.predictionType ?? 'epsilon',
+        solverOrder: mergedConfig.solverOrder ?? 1,
+        useFlowSigmas: mergedConfig.useFlowSigmas ?? false,
+        shift: mergedConfig.shift,
+        sigmas: sigmaSchedule.getSigmas(),
+        timesteps: sigmaSchedule.getTimesteps(),
+      });
+
+      // Get timesteps directly from schedule (already clamped to [0, 999])
+      const allTimesteps = sigmaSchedule.getTimesteps();
+
       // Denoising loop
       onProgress?.({ phase: 'denoising', pct: 40 });
       for (let i = 0; i < numSteps; i++) {
@@ -268,8 +285,8 @@ export class SDTurboAdapter implements Adapter {
         const currentSigma = sigmaSchedule.getSigma(i);
         const nextSigma = sigmaSchedule.getNextSigma(i);
 
-        // Map sigma back to timestep for UNet
-        const currentTimestep = Math.round((currentSigma / sigma) * 999);
+        // Use timestep directly from schedule (already in [0, 999] range)
+        const currentTimestep = allTimesteps[i];
 
         const latent_model_input = scale_model_inputs(ort as any, currentLatent, currentSigma);
 
@@ -291,8 +308,24 @@ export class SDTurboAdapter implements Adapter {
         schedulerState.stepIndex = i;
         schedulerState.prevSigma = currentSigma;
 
+        // Debug: stats before step
+        const latentStatsBefore = tensorStats(currentLatent.data);
+        const modelOutStats = tensorStats(out_sample.data);
+
         // Dispatch to scheduler step function
         const resultData = stepFn(out_sample.data, currentLatent.data, currentSigma, nextSigma, schedulerState);
+
+        // Debug: stats after step
+        const latentStatsAfter = tensorStats(resultData);
+
+        console.debug(`[sd-turbo] step ${i + 1}/${numSteps}`, {
+          sigma: currentSigma,
+          nextSigma,
+          timestep: currentTimestep,
+          latentBefore: latentStatsBefore,
+          modelOutput: modelOutStats,
+          latentAfter: latentStatsAfter,
+        });
 
         // Cache model output for multistep solvers
         schedulerState.prevModelOutput = new Float32Array(out_sample.data);
@@ -351,6 +384,27 @@ export class SDTurboAdapter implements Adapter {
 }
 
 // Helpers
+
+/** Compute quick statistics on a tensor's data for debug logging. */
+function tensorStats(data: Float32Array | number[]): {
+  min: number;
+  max: number;
+  mean: number;
+  std: number;
+} {
+  let min = Infinity, max = -Infinity, sum = 0, sumSq = 0;
+  const n = data.length;
+  for (let i = 0; i < n; i++) {
+    const v = data[i];
+    if (v < min) min = v;
+    if (v > max) max = v;
+    sum += v;
+    sumSq += v * v;
+  }
+  const mean = sum / n;
+  const std = Math.sqrt(sumSq / n - mean * mean);
+  return { min, max, mean, std };
+}
 
 function mulberry32(seed: number) {
   let t = seed >>> 0;
