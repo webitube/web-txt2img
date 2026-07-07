@@ -1,7 +1,7 @@
 // Shared types for the public API
 
 export type BackendId = 'webgpu' | 'wasm';
-export type ModelId = 'sd-turbo' | 'janus-pro-1b';
+export type ModelId = 'sd-turbo' | 'sd-turbo-mangled-fp16' | 'sd-turbo-mangled-int8' | 'janus-pro-1b';
 export type SchedulerId =
   | 'euler'
   | 'ddim'

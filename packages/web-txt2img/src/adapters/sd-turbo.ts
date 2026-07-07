@@ -27,9 +27,14 @@ export class SDTurboAdapter implements Adapter {
   } = {};
   private tokenizerFn: ((text: string, opts?: any) => Promise<{ input_ids: number[] }>) | null = null;
   private tokenizerProvider: (() => Promise<(text: string, opts?: any) => Promise<{ input_ids: number[] }>>) | null = null;
-  private modelBase = '/assets/sd-turbo-ort-web';
-  private fallbackBase = 'https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main';
+  private modelBase: string;
+  private fallbackBase: string | null;
   private localModelBase: string | null = null;
+
+  constructor(modelBase: string = '/assets/sd-turbo-ort-web', fallbackBase: string | null = 'https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main') {
+    this.modelBase = modelBase;
+    this.fallbackBase = fallbackBase;
+  }
 
   checkSupport(c: Capabilities): BackendId[] {
     const backends: BackendId[] = [];
@@ -125,7 +130,8 @@ export class SDTurboAdapter implements Adapter {
 
       // compute base URL
       const base = this.modelBase;
-      console.log(`[sd-turbo] Loading assets from base: ${base} (fallback: ${this.fallbackBase})`);
+      console.log(`%c[sd-turbo] Loading assets from LOCAL base: ${base}`, 'color: #4ade80; font-weight: bold;');
+      console.log(`[sd-turbo] Fallback (if needed): ${this.fallbackBase}`);
 
       // Fetch and create sessions with progress
       let bytesDownloaded = 0;
@@ -149,14 +155,14 @@ export class SDTurboAdapter implements Adapter {
         try {
           // Try primary base (local or override)
           const primaryUrl = `${base}/${model.url}`;
-          console.log(`[sd-turbo] Attempting to load ${model.url} from ${primaryUrl}`);
+          console.log(`%c[sd-turbo] Loading ${model.url} from LOCAL: ${primaryUrl}`, 'color: #4ade80; font-weight: bold;');
           // Fetch with size verification
           const fetchRes = await fetch(primaryUrl);
           if (!fetchRes.ok) throw new Error(`Failed to fetch ${primaryUrl}: ${fetchRes.status}`);
           const contentLength = Number(fetchRes.headers.get('content-length') ?? '0');
-          console.log(`[sd-turbo] ${model.url} response: status=${fetchRes.status}, content-length=${contentLength}`);
           buf = await fetchRes.arrayBuffer();
-          console.log(`[sd-turbo] ${model.url} fetched: ${buf.byteLength} bytes (expected ${contentLength})`);
+          const sizeMB = (buf.byteLength / 1024 / 1024).toFixed(1);
+          console.log(`%c[sd-turbo] ✅ ${model.url} loaded locally (${sizeMB}MB)`, 'color: #4ade80; font-weight: bold;');
           if (contentLength > 0 && buf.byteLength < contentLength) {
             console.error(`[sd-turbo] ${model.url} truncated! Got ${buf.byteLength} bytes, expected ${contentLength} bytes (${contentLength - buf.byteLength} bytes missing)`);
             throw new Error(`File truncated during fetch: ${buf.byteLength}/${contentLength} bytes`);
@@ -164,7 +170,7 @@ export class SDTurboAdapter implements Adapter {
           // Progress callback for successful fetch
           options.onProgress?.({
             phase: 'loading',
-            message: `downloaded ${model.url} (${(buf.byteLength / 1024 / 1024).toFixed(1)}MB)`,
+            message: `downloaded ${model.url} (${sizeMB}MB)`,
             pct: 100,
             bytesDownloaded: buf.byteLength,
             totalBytesExpected: contentLength || buf.byteLength,
@@ -172,21 +178,27 @@ export class SDTurboAdapter implements Adapter {
             accuracy: 'exact',
           });
         } catch (e) {
-          console.warn(`[sd-turbo] Failed to load ${model.url} from ${base}, trying fallback...`, e);
-          const fallbackUrl = `${this.fallbackBase}/${model.url}`;
-          console.log(`[sd-turbo] Attempting fallback to ${fallbackUrl}`);
-          buf = await fetchArrayBufferWithCacheProgress(fallbackUrl, this.id, (loaded, total) => {
-            const pct = Math.min(100, Math.round(((bytesDownloaded + loaded) / GRAND_APPROX) * 100));
-            options.onProgress?.({
-              phase: 'loading',
-              message: `downloading ${model.url} (fallback)...`,
-              pct,
-              bytesDownloaded: bytesDownloaded + loaded,
-              totalBytesExpected: GRAND_APPROX,
-              asset: model.url,
-              accuracy: 'exact',
-            });
-          }, expectedTotal);
+          // Only try fallback if one is configured (baseline model only)
+          if (this.fallbackBase) {
+            console.warn(`[sd-turbo] Failed to load ${model.url} from ${base}, trying fallback...`, e);
+            const fallbackUrl = `${this.fallbackBase}/${model.url}`;
+            console.log(`[sd-turbo] Attempting fallback to ${fallbackUrl}`);
+            buf = await fetchArrayBufferWithCacheProgress(fallbackUrl, this.id, (loaded, total) => {
+              const pct = Math.min(100, Math.round(((bytesDownloaded + loaded) / GRAND_APPROX) * 100));
+              options.onProgress?.({
+                phase: 'loading',
+                message: `downloading ${model.url} (fallback)...`,
+                pct,
+                bytesDownloaded: bytesDownloaded + loaded,
+                totalBytesExpected: GRAND_APPROX,
+                asset: model.url,
+                accuracy: 'exact',
+              });
+            }, expectedTotal);
+          } else {
+            console.error(`[sd-turbo] Failed to load ${model.url} and no fallback available. Model must be available locally.`);
+            throw e;
+          }
         }
 
         // Verify ONNX header — two valid formats:

@@ -5,14 +5,36 @@ import { JanusProAdapter } from './adapters/janus-pro.js';
 const REGISTRY: RegistryEntry[] = [
   {
     id: 'sd-turbo',
-    displayName: 'SD-Turbo (ONNX Runtime Web)',
+    displayName: 'SD-Turbo Baseline',
     task: 'text-to-image',
     supportedBackends: ['webgpu', 'wasm'],
     notes: 'Image size 512×512; seed supported.',
     sizeBytesApprox: 2398 * 1024 * 1024,
     sizeGBApprox: 2.34,
     sizeNotes: 'UNet ~640MB, text_encoder ~1700MB, vae_decoder ~95MB',
-    createAdapter: () => new SDTurboAdapter(),
+    createAdapter: () => new SDTurboAdapter('/assets/sd-turbo-ort-web'),
+  },
+  {
+    id: 'sd-turbo-mangled-fp16',
+    displayName: 'mangledMerge-fp16',
+    task: 'text-to-image',
+    supportedBackends: ['webgpu', 'wasm'],
+    notes: 'Civitai mangledMerge model, FP16 quantization. Image size 512×512; seed supported.',
+    sizeBytesApprox: 2398 * 1024 * 1024,
+    sizeGBApprox: 2.34,
+    sizeNotes: 'UNet ~640MB, text_encoder ~1700MB, vae_decoder ~95MB',
+    createAdapter: () => new SDTurboAdapter('/assets/mangledMerge_onnx_fp16'),
+  },
+  {
+    id: 'sd-turbo-mangled-int8',
+    displayName: 'mangledMerge-int8',
+    task: 'text-to-image',
+    supportedBackends: ['webgpu', 'wasm'],
+    notes: 'Civitai mangledMerge model, INT8 quantization. Image size 512×512; seed supported.',
+    sizeBytesApprox: 2398 * 1024 * 1024,
+    sizeGBApprox: 2.34,
+    sizeNotes: 'UNet ~640MB, text_encoder ~1700MB, vae_decoder ~95MB',
+    createAdapter: () => new SDTurboAdapter('/assets/mangledMerge_onnx_int8'),
   },
   {
     id: 'janus-pro-1b',
@@ -47,6 +69,8 @@ export function getRegistryEntry(id: ModelId): RegistryEntry {
 export function defaultBackendPreferenceFor(id: ModelId): BackendId[] {
   switch (id) {
     case 'sd-turbo':
+    case 'sd-turbo-mangled-fp16':
+    case 'sd-turbo-mangled-int8':
       return ['webgpu', 'wasm'];
     case 'janus-pro-1b':
       return ['webgpu'];
