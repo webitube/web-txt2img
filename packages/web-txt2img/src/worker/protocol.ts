@@ -17,8 +17,9 @@ export type WorkerGenerateParams = {
 // Requests → Worker
 export type WorkerRequest =
   | { id: string; kind: 'detect' }
-  | { id: string; kind: 'listModels' }
   | { id: string; kind: 'listBackends' }
+  | { id: string; kind: 'listModels' }
+  | { id: string; kind: 'getLoadedModel' }
   | { id: string; kind: 'load'; model: ModelId; options?: LoadOptions }
   | { id: string; kind: 'unload'; model?: ModelId }
   | { id: string; kind: 'purge'; model?: ModelId }

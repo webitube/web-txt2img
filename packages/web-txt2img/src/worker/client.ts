@@ -79,6 +79,11 @@ export class Txt2ImgWorkerClient {
     return res.data;
   }
 
+  async getLoadedModel(): Promise<ModelId | null> {
+    const res: any = await this.send({ id: uid(), kind: 'getLoadedModel' });
+    return res.data;
+  }
+
   async load(model: ModelId, options?: LoadOptions, onProgress?: ProgressHandler): Promise<any> {
     const res: any = await this.send({ id: uid(), kind: 'load', model, options }, onProgress);
     return res.data ?? res; // return LoadResult in data, or whole msg if shaped differently

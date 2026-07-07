@@ -27,7 +27,8 @@ export class SDTurboAdapter implements Adapter {
   } = {};
   private tokenizerFn: ((text: string, opts?: any) => Promise<{ input_ids: number[] }>) | null = null;
   private tokenizerProvider: (() => Promise<(text: string, opts?: any) => Promise<{ input_ids: number[] }>>) | null = null;
-  private modelBase = 'https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main';
+  private modelBase = '/assets/sd-turbo-ort-web';
+  private fallbackBase = 'https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main';
   private localModelBase: string | null = null;
 
   checkSupport(c: Capabilities): BackendId[] {
@@ -124,6 +125,7 @@ export class SDTurboAdapter implements Adapter {
 
       // compute base URL
       const base = this.modelBase;
+      console.log(`[sd-turbo] Loading assets from base: ${base} (fallback: ${this.fallbackBase})`);
 
       // Fetch and create sessions with progress
       let bytesDownloaded = 0;
@@ -142,18 +144,70 @@ export class SDTurboAdapter implements Adapter {
         const model = models[key];
         options.onProgress?.({ phase: 'loading', message: `downloading ${model.url}...`, bytesDownloaded });
         const expectedTotal = model.sizeMB * 1024 * 1024;
-        const buf = await fetchArrayBufferWithCacheProgress(`${base}/${model.url}`, this.id, (loaded, total) => {
-          const pct = Math.min(100, Math.round(((bytesDownloaded + loaded) / GRAND_APPROX) * 100));
+        
+        let buf: ArrayBuffer;
+        try {
+          // Try primary base (local or override)
+          const primaryUrl = `${base}/${model.url}`;
+          console.log(`[sd-turbo] Attempting to load ${model.url} from ${primaryUrl}`);
+          // Fetch with size verification
+          const fetchRes = await fetch(primaryUrl);
+          if (!fetchRes.ok) throw new Error(`Failed to fetch ${primaryUrl}: ${fetchRes.status}`);
+          const contentLength = Number(fetchRes.headers.get('content-length') ?? '0');
+          console.log(`[sd-turbo] ${model.url} response: status=${fetchRes.status}, content-length=${contentLength}`);
+          buf = await fetchRes.arrayBuffer();
+          console.log(`[sd-turbo] ${model.url} fetched: ${buf.byteLength} bytes (expected ${contentLength})`);
+          if (contentLength > 0 && buf.byteLength < contentLength) {
+            console.error(`[sd-turbo] ${model.url} truncated! Got ${buf.byteLength} bytes, expected ${contentLength} bytes (${contentLength - buf.byteLength} bytes missing)`);
+            throw new Error(`File truncated during fetch: ${buf.byteLength}/${contentLength} bytes`);
+          }
+          // Progress callback for successful fetch
           options.onProgress?.({
             phase: 'loading',
-            message: `downloading ${model.url}...`,
-            pct,
-            bytesDownloaded: bytesDownloaded + loaded,
-            totalBytesExpected: GRAND_APPROX,
+            message: `downloaded ${model.url} (${(buf.byteLength / 1024 / 1024).toFixed(1)}MB)`,
+            pct: 100,
+            bytesDownloaded: buf.byteLength,
+            totalBytesExpected: contentLength || buf.byteLength,
             asset: model.url,
             accuracy: 'exact',
           });
-        }, expectedTotal);
+        } catch (e) {
+          console.warn(`[sd-turbo] Failed to load ${model.url} from ${base}, trying fallback...`, e);
+          const fallbackUrl = `${this.fallbackBase}/${model.url}`;
+          console.log(`[sd-turbo] Attempting fallback to ${fallbackUrl}`);
+          buf = await fetchArrayBufferWithCacheProgress(fallbackUrl, this.id, (loaded, total) => {
+            const pct = Math.min(100, Math.round(((bytesDownloaded + loaded) / GRAND_APPROX) * 100));
+            options.onProgress?.({
+              phase: 'loading',
+              message: `downloading ${model.url} (fallback)...`,
+              pct,
+              bytesDownloaded: bytesDownloaded + loaded,
+              totalBytesExpected: GRAND_APPROX,
+              asset: model.url,
+              accuracy: 'exact',
+            });
+          }, expectedTotal);
+        }
+
+        // Verify ONNX header — two valid formats:
+        // 1. ONNX Archive: starts with magic "ONNX" (0x4F 0x4E 0x4E 0x58)
+        // 2. Raw Protobuf: starts with protobuf field tag (0x08 = field 1, wire type 0)
+        const header = new Uint8Array(buf, 0, 4);
+        const magic = String.fromCharCode(...header);
+        const isOnnxArchive = (magic === 'ONNX');
+        const isRawProtobuf = (header[0] === 0x08); // protobuf field 1, varint wire type
+        const sizeMB = (buf.byteLength / (1024 * 1024)).toFixed(1);
+        console.log(`[sd-turbo] ${model.url} buffer: ${sizeMB}MB (${buf.byteLength} bytes), header: "${magic}" (${isOnnxArchive ? 'ONNX Archive' : isRawProtobuf ? 'Raw Protobuf' : 'UNKNOWN'})`);
+        if (!isOnnxArchive && !isRawProtobuf) {
+          console.error(`[sd-turbo] ${model.url} has invalid ONNX header: "${magic}". Binary data may be corrupted.`);
+          throw new Error(`Invalid ONNX file header: expected "ONNX" archive or raw protobuf, got "${magic}". File may be corrupted.`);
+        }
+        // Verify buffer size is reasonable (ONNX models should be > 1KB)
+        if (buf.byteLength < 1024) {
+          console.error(`[sd-turbo] ${model.url} buffer too small: ${buf.byteLength} bytes. File may be truncated.`);
+          throw new Error(`ONNX model buffer too small (${buf.byteLength} bytes). File may be truncated or corrupted.`);
+        }
+        
         bytesDownloaded += buf.byteLength;
         const start = performance.now();
         const sess = await (ort as any).InferenceSession.create(buf, { ...opt, ...(model.opt as any) });

@@ -133,6 +133,10 @@ function onMessage(ev: MessageEvent<WorkerRequest>) {
   if (!msg || typeof msg !== 'object' || !('kind' in msg)) return;
 
   switch (msg.kind) {
+    case 'getLoadedModel': {
+      post({ id: msg.id, type: 'result', ok: true, data: loadedModel });
+      break;
+    }
     case 'detect': {
       detectCapabilities()
         .then((v) => post({ id: msg.id, type: 'result', ok: true, data: v }))
